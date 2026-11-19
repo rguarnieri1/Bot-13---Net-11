@@ -7,12 +7,12 @@ public class BotSchedulerService
 {
     private const int CandlesPerAnalysis = 300;  // stessa finestra del backtest
     private const int HistoryCalendarDays = 450;  // giorni di calendario che coprono 300 sedute di borsa
-    private const int MinCandlesForAnalysis = PositionTradingStrategy.MinCandles; // minimo richiesto dalla strategia
+    private const int MinCandlesForAnalysis = SwingTradingLongStrategy.MinCandles; // minimo richiesto dalla strategia
 
     private readonly YahooDataService _dataService;
     private readonly NotificationService _notificationService;
     private readonly ReportingService _reportingService;
-    private readonly PositionTradingStrategy _positionStrategy;
+    private readonly SwingTradingLongStrategy _swingStrategy;
     private readonly RiskManager _riskManager;
     private Timer? _marketCheckTimer;
     private Timer? _weeklyReportTimer;
@@ -39,7 +39,7 @@ public class BotSchedulerService
         _dataService = new YahooDataService();
         _notificationService = new NotificationService();
         _reportingService = new ReportingService();
-        _positionStrategy = new PositionTradingStrategy();
+        _swingStrategy = new SwingTradingLongStrategy();
         _riskManager = new RiskManager(
             positionValue: capitalPerTrade,   // importo fisso per trade ($)
             rewardRiskRatio: rewardRiskRatio, // take profit = R:R × distanza dello stop
@@ -57,7 +57,7 @@ public class BotSchedulerService
         }
 
         _isRunning = true;
-        Console.WriteLine("\n🤖 Bot 12 - Azioni USA avviato! (paper trading: nessun ordine reale)");
+        Console.WriteLine("\n🤖 Bot 13 - Azioni USA avviato! (paper trading: nessun ordine reale)");
         Console.WriteLine($"📊 Monitoraggio ogni {CheckInterval.TotalMinutes:F0} minuti, candele {_timeframe}...\n");
 
         // Esegui il primo controllo immediatamente
@@ -101,7 +101,7 @@ public class BotSchedulerService
         _isRunning = false;
         _marketCheckTimer?.Dispose();
         _weeklyReportTimer?.Dispose();
-        Console.WriteLine("\n🛑 Bot 12 - Azioni USA fermato.");
+        Console.WriteLine("\n🛑 Bot 13 - Azioni USA fermato.");
     }
 
     private async Task CheckMarketAsync()
@@ -168,11 +168,7 @@ public class BotSchedulerService
             }
             else
             {
-                // Regime di mercato (SPY sopra/sotto la EMA50) sulla seduta appena chiusa: filtro direzionale della strategia
-                var marketBullish = PositionTradingStrategy.IsMarketBullish(marketClosed);
                 Console.WriteLine($"🕯️  Seduta del {lastClosedTime:yyyy-MM-dd} chiusa: ricerca segnali");
-                Console.WriteLine($"📊 Regime di mercato ({YahooDataService.MarketSymbol}): {(marketBullish == null ? "sconosciuto (nessun segnale)" : marketBullish.Value ? "rialzista (long consentiti)" : "ribassista (nessun long)")}");
-                cycle.BtcRegime = marketBullish == null ? "Sconosciuto" : marketBullish.Value ? "Rialzista" : "Ribassista";
 
                 _lastScannedCandle = lastClosedTime;
                 var stocks = _dataService.Universe;
@@ -214,8 +210,8 @@ public class BotSchedulerService
                             continue;
                         }
 
-                        // ✅ STRATEGIA: Position Trading (trend EMA50/200 + pullback), solo long
-                        var signalResult = _positionStrategy.Analyze(symbol, candles, marketBullish);
+                        // ✅ STRATEGIA: Swing Trading Long (trend EMA20/50 + ritracciamento RSI), solo long
+                        var signalResult = _swingStrategy.Analyze(symbol, candles);
 
                         if (signalResult.IsSignal)
                             candidates.Add((symbol, signalResult, candles));
@@ -266,7 +262,7 @@ public class BotSchedulerService
                     var trade = _reportingService.RecordTrade(
                         symbol,
                         entryPrice,
-                        "Position Trading (Trend EMA50/200 + Pullback)",
+                        "Swing Trading Long",
                         isLong,
                         positionResult.StopLossPrice,
                         positionResult.TargetPrice,
@@ -347,7 +343,7 @@ public class BotSchedulerService
         }
         finally
         {
-            // Salva il ciclo nella tabella bot12.bot12_cycles (anche se terminato con errore)
+            // Salva il ciclo nella tabella bot13.bot13_cycles (anche se terminato con errore)
             if (cycle != null)
             {
                 cycle.EndTime = DateTime.UtcNow;
@@ -418,7 +414,7 @@ public class BotSchedulerService
     private static string RejectionLabel(RejectionReason reason) => reason switch
     {
         RejectionReason.InsufficientData => "Strategia: dati insufficienti per il calcolo",
-        RejectionReason.TrendNotAligned => "Strategia: trend non rialzista (Close > EMA50 > EMA200, EMA50 in salita)",
+        RejectionReason.TrendNotAligned => "Strategia: trend non rialzista (Close > EMA50, EMA20 > EMA50, EMA50 in salita)",
         RejectionReason.NoVolumeData => "Strategia: volume assente",
         RejectionReason.VolumeInsufficient => "Strategia: volume insufficiente",
         RejectionReason.CandleNotStrong => "Strategia: candela non abbastanza forte",

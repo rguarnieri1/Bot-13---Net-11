@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 // In esecuzione normale il bot scrive solo a schermo: nessun file cycles_yyyy-MM-dd.log.
 if (Environment.GetCommandLineArgs().Skip(1).FirstOrDefault()?.StartsWith("--backtest", StringComparison.OrdinalIgnoreCase) == true)
     FileLogger.Install(Path.Combine(AppContext.BaseDirectory, "Logs"), "backtest");
-Console.WriteLine($"▶️  Avvio Bot 12 - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC - eseguibile in {AppContext.BaseDirectory}");
+Console.WriteLine($"▶️  Avvio Bot 13 - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC - eseguibile in {AppContext.BaseDirectory}");
 
 // Qualsiasi errore che chiude il processo viene scritto a schermo, così si sa perché il bot si è fermato
 AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -17,13 +17,13 @@ TaskScheduler.UnobservedTaskException += (_, e) =>
     e.SetObserved();
 };
 AppDomain.CurrentDomain.ProcessExit += (_, _) =>
-    Console.WriteLine($"⏹️  Bot 12 terminato - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
+    Console.WriteLine($"⏹️  Bot 13 terminato - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
 Console.CancelKeyPress += (_, _) =>
     Console.WriteLine("⏹️  Chiusura richiesta con Ctrl+C");
 
 Console.WriteLine(@"
 ╔════════════════════════════════════════════════════════╗
-║       🤖 BOT 12 - POSITION TRADING - AZIONI USA (Yahoo Finance)    ║
+║       🤖 BOT 13 - SWING TRADING LONG - AZIONI USA (Yahoo)  ║
 ║                 Backtest + Live Trading                ║
 ╚════════════════════════════════════════════════════════╝
 ");
@@ -109,9 +109,9 @@ async Task RunLiveAsync()
     var scheduler = new BotSchedulerService(Timeframe, RewardRiskRatio, CapitalPerTrade, CommissionPerTransaction);
 
     Console.WriteLine("Strategia Principale Attiva:");
-    Console.WriteLine("  ⭐ Position Trading long-only: trend EMA50/200 + pullback su EMA20");
+    Console.WriteLine("  ⭐ Swing Trading long-only: trend EMA20/50 + ritracciamento RSI + ripartenza su EMA20");
     Console.WriteLine($"     • Configurazione: EMA 20, 50, 200 e RSI14 su candele {Timeframe}");
-    Console.WriteLine("     • Filtri: trend (Close > EMA50 > EMA200, EMA50 in salita), pullback EMA20/EMA50, candela rialzista con RSI 45-70 in crescita, regime di mercato (SPY vs EMA50)");
+    Console.WriteLine("     • Filtri: trend (Close > EMA50, EMA20 > EMA50, EMA50 in salita), ritracciamento su EMA20 con RSI < 50, candela rialzista sopra EMA20 e max precedente con RSI in crescita (<= 70), regime di mercato (SPY vs EMA50)");
     Console.WriteLine("     • Modalità: paper trading (segnali e trade simulati, nessun ordine reale)");
     Console.WriteLine("\nImpostazioni:");
     Console.WriteLine("  • Dati: Yahoo Finance (YFSharp), azioni USA più grandi per capitalizzazione (candele giornaliere)");

@@ -4,14 +4,14 @@ using Microsoft.EntityFrameworkCore;
 namespace BotCripto.Data;
 
 // Contesto Entity Framework sul database SQL Server "bot" (autenticazione Windows).
-// Le tabelle del Bot 12 stanno nello schema "bot12", così il database può essere condiviso con gli altri bot.
+// Le tabelle del Bot 13 stanno nello schema "bot13", così il database può essere condiviso con gli altri bot.
 public class BotDbContext : DbContext
 {
-    public const string Schema = "bot12";
+    public const string Schema = "bot13";
 
-    // Valore fisso della colonna Bot nelle tabelle bot12.bot12_trades, bot12.bot12_signals, bot12.bot12_cycles
-    // e bot12.bot12_operazioni_chiuse
-    public const string BotName = "Bot 12";
+    // Valore fisso della colonna Bot nelle tabelle bot13.bot13_trades, bot13.bot13_signals, bot13.bot13_cycles
+    // e bot13.bot13_operazioni_chiuse
+    public const string BotName = "Bot 13";
 
     private readonly string _connectionString;
 
@@ -30,7 +30,7 @@ public class BotDbContext : DbContext
         optionsBuilder.UseSqlServer(_connectionString, sql => sql.EnableRetryOnFailure(3));
     }
 
-    // Prima di ogni salvataggio scrive "Bot 12" nella colonna Bot delle righe inserite o aggiornate
+    // Prima di ogni salvataggio scrive "Bot 13" nella colonna Bot delle righe inserite o aggiornate
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         foreach (var entry in ChangeTracker.Entries())
@@ -48,7 +48,7 @@ public class BotDbContext : DbContext
 
         modelBuilder.Entity<Trade>(e =>
         {
-            e.ToTable("bot12_trades");
+            e.ToTable("bot13_trades");
             e.HasKey(t => t.Id);
             e.Property(t => t.Id).HasMaxLength(36);
             e.Property(t => t.Symbol).HasMaxLength(50).IsRequired(false);
@@ -69,7 +69,7 @@ public class BotDbContext : DbContext
 
         modelBuilder.Entity<SignalRecord>(e =>
         {
-            e.ToTable("bot12_signals");
+            e.ToTable("bot13_signals");
             e.HasKey(s => s.Id);
             e.Property(s => s.Id).UseIdentityColumn();
             e.Property(s => s.Symbol).HasMaxLength(50);
@@ -90,7 +90,7 @@ public class BotDbContext : DbContext
         // Tabella creata con crea-tabella-operazioni-chiuse.sql
         modelBuilder.Entity<ClosedTradeRecord>(e =>
         {
-            e.ToTable("bot12_operazioni_chiuse");
+            e.ToTable("bot13_operazioni_chiuse");
             e.HasKey(c => c.Id);
             e.Property(c => c.Id).UseIdentityColumn();
             e.Property(c => c.TradeId).HasMaxLength(36);
@@ -110,7 +110,7 @@ public class BotDbContext : DbContext
         // Tabella creata con crea-tabella-cycles.sql
         modelBuilder.Entity<CycleRecord>(e =>
         {
-            e.ToTable("bot12_cycles");
+            e.ToTable("bot13_cycles");
             e.HasKey(c => c.Id);
             e.Property(c => c.Id).UseIdentityColumn();
             e.Property(c => c.Timeframe).HasMaxLength(10);

@@ -6,7 +6,7 @@ namespace BotCripto.Services;
 
 public class BacktestService
 {
-    private const int WarmupCandles = PositionTradingStrategy.MinCandles; // candele minime richieste dalla strategia prima di poter generare segnali
+    private const int WarmupCandles = SwingTradingLongStrategy.MinCandles; // candele minime richieste dalla strategia prima di poter generare segnali
     private const int MinWarmupDays = 20; // storico minimo scaricato prima di startDate per il calcolo degli indicatori
     private const int LookbackCandles = 300; // candele passate alla strategia a ogni passo (come nel download standard)
 
@@ -29,13 +29,13 @@ public class BacktestService
 
     private readonly YahooDataService _dataService;
     private readonly RiskManager _riskManager;
-    private readonly PositionTradingStrategy _strategy;
+    private readonly SwingTradingLongStrategy _strategy;
 
     // Capitale investibile illimitato: ogni trade investe un importo fisso (capitalPerTrade), senza tetto totale
     public BacktestService(decimal rewardRiskRatio, decimal capitalPerTrade, decimal commissionPerTransaction)
     {
         _dataService = new YahooDataService();
-        _strategy = new PositionTradingStrategy();
+        _strategy = new SwingTradingLongStrategy();
         _riskManager = new RiskManager(
             positionValue: capitalPerTrade,
             rewardRiskRatio: rewardRiskRatio,
@@ -47,7 +47,7 @@ public class BacktestService
     // Imposta sulle plusvalenze: si applica al saldo netto del periodo (le perdite compensano i guadagni)
     private const decimal TaxRate = 0.26m;
 
-    // Esegue davvero la strategia Position Trading (EMA50/200 + pullback) + RiskManager candela per candela su dati storici reali
+    // Esegue davvero la strategia Swing Trading Long (EMA20/50 + ritracciamento RSI) + RiskManager candela per candela su dati storici reali
     // (candele giornaliere Yahoo Finance), aprendo e chiudendo posizioni quando stop loss o target vengono toccati.
     // requestedSymbols: elenco fisso di azioni; se null si usano le più grandi per capitalizzazione
     // (attenzione: è l'elenco di oggi applicato al passato, quindi il risultato è ottimistico).
@@ -87,12 +87,6 @@ public class BacktestService
         int maxConcurrent = 0;
         DateTime? earliestTestedCandle = null;
         DateTime? latestTestedCandle = null;
-
-        // Regime di mercato (SPY) per ogni candela: calcolato solo sulle candele disponibili fino a quel momento
-        var marketCandles = _dataService.GetHistoricalCandles(YahooDataService.MarketSymbol, historyFrom, endDate);
-        var marketRegime = new Dictionary<DateTime, bool?>();
-        for (int i = 0; i < marketCandles.Count; i++)
-            marketRegime[marketCandles[i].Time] = PositionTradingStrategy.IsMarketBullish(Window(marketCandles, i));
 
         // 1) Scarica tutte le candele prima di simulare: il portafoglio va simulato in ordine cronologico
         //    su tutti i simboli insieme, per sapere in ogni momento quanto capitale è impegnato.
@@ -176,7 +170,7 @@ public class BacktestService
                     if (openPositions.ContainsKey(symbol) || !indexBySymbol[symbol].TryGetValue(time, out var idx) || idx < WarmupCandles)
                         continue;
 
-                    var analysis = _strategy.Analyze(symbol, Window(candles, idx), marketRegime.GetValueOrDefault(time));
+                    var analysis = _strategy.Analyze(symbol, Window(candles, idx));
                     if (analysis.IsSignal)
                         candidates.Add((symbol, candles[idx], analysis));
                 }
@@ -270,7 +264,7 @@ public class BacktestService
         var sb = new StringBuilder();
 
         sb.AppendLine("\n" + new string('═', 80));
-        sb.AppendLine("📊 BACKTEST REPORT - BOT 12 AZIONI USA (dati storici reali Yahoo Finance)");
+        sb.AppendLine("📊 BACKTEST REPORT - BOT 13 AZIONI USA (dati storici reali Yahoo Finance)");
         sb.AppendLine(new string('═', 80));
 
         sb.AppendLine($"\n📅 PERIODO TEST:");

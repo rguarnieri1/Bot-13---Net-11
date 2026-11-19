@@ -1,7 +1,7 @@
 namespace BotCripto.Models;
 
 // Un ciclo di controllo del mercato (CheckMarketAsync), con gli stessi dati del report "Ciclo completato"
-// che prima veniva scritto in Logs/cycles_yyyy-MM-dd.log. Salvato nella tabella bot12.bot12_cycles.
+// che prima veniva scritto in Logs/cycles_yyyy-MM-dd.log. Salvato nella tabella bot13.bot13_cycles.
 public class CycleRecord
 {
     public long Id { get; set; }

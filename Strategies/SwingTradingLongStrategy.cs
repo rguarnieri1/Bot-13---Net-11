@@ -1,43 +1,32 @@
-﻿using BotCripto.Models;
+using BotCripto.Models;
 
 namespace BotCripto.Strategies;
 
-// Position trading long-only su candele giornaliere:
-//  1) trend primario rialzista: Close > EMA50 > EMA200 e EMA50 in salita
-//  2) pullback: nelle ultime candele il minimo ha toccato la zona EMA20/EMA50 e la candela chiude di nuovo sopra EMA20
-//  3) ripartenza: candela rialzista, RSI14 in recupero (>45, in crescita) e non ipercomprato
-//  4) filtro di mercato: SPY sopra la sua EMA50
+// Swing trading long-only su candele chiuse (timeframe configurato, tipicamente 1d):
+//  1) trend di fondo rialzista: Close > EMA50 e EMA20 > EMA50 con EMA50 in salita
+//  2) ritracciamento: nelle ultime candele l'RSI14 è sceso sotto RsiPullback e il minimo ha toccato l'EMA20
+//  3) ripartenza: candela rialzista che chiude sopra l'EMA20 e sopra il massimo della candela precedente,
+//     RSI in crescita e non ipercomprato
 // Stop loss sotto il minimo dello swing recente (meno un buffer ATR); il target lo calcola il RiskManager (R:R configurato).
-public class PositionTradingStrategy
+public class SwingTradingLongStrategy
 {
     private const int FastEma = 20;
-    private const int MidEma = 50;
-    private const int SlowEma = 200;
-    private const int MarketRegimeEmaPeriod = 50;
-    private const int PullbackLookback = 5;      // candele entro cui deve essere avvenuto il pullback
+    private const int SlowEma = 50;
+    private const int PullbackLookback = 5;      // candele entro cui deve essere avvenuto il ritracciamento
     private const int SwingLookback = 10;        // candele per il minimo dello swing (stop)
     private const int AtrPeriod = 14;
     private const decimal AtrStopBuffer = 0.5m;  // buffer sotto lo swing, in ATR
-    private const decimal RsiMin = 45m;
+    private const decimal RsiPullback = 50m;     // l'RSI deve essere sceso sotto questa soglia durante il ritracciamento
     private const decimal RsiMax = 70m;
     private const decimal MaxStopPercent = 0.15m; // stop più largo del 15% = setup scartato
-    public const int MinCandles = SlowEma + 10;
+    public const int MinCandles = SlowEma + 20;
 
-    // Regime di mercato: true se SPY chiude sopra la sua EMA50, false se sotto, null se dati insufficienti.
-    public static bool? IsMarketBullish(List<Candle> marketCandles)
-    {
-        var ema = TechnicalIndicators.CalculateEMA(marketCandles.Select(c => c.Close).ToList(), MarketRegimeEmaPeriod);
-        if (ema.Count == 0)
-            return null;
-        return marketCandles.Last().Close > ema.Last();
-    }
-
-    public AnalysisResult Analyze(string symbol, List<Candle> candles, bool? marketBullish)
+    public AnalysisResult Analyze(string symbol, List<Candle> candles)
     {
         var result = new AnalysisResult
         {
             Symbol = symbol,
-            StrategyName = "Position Trading (Trend EMA50/200 + Pullback)",
+            StrategyName = "Swing Trading Long",
             IsSignal = false,
             Signal = "No Signal",
             AnalysisTime = DateTime.UtcNow
@@ -51,69 +40,59 @@ public class PositionTradingStrategy
 
         var closes = candles.Select(c => c.Close).ToList();
         var ema20 = TechnicalIndicators.CalculateEMA(closes, FastEma);
-        var ema50 = TechnicalIndicators.CalculateEMA(closes, MidEma);
-        var ema200 = TechnicalIndicators.CalculateEMA(closes, SlowEma);
+        var ema50 = TechnicalIndicators.CalculateEMA(closes, SlowEma);
         var rsi = TechnicalIndicators.CalculateRSI(closes);
-        if (ema20.Count == 0 || ema50.Count < 6 || ema200.Count == 0 || rsi.Count < 2)
+        if (ema20.Count < PullbackLookback + 1 || ema50.Count < 6 || rsi.Count < PullbackLookback + 2)
         {
             result.Rejection = RejectionReason.InsufficientData;
             return result;
         }
 
         var last = candles.Last();
+        var prev = candles[candles.Count - 2];
         result.CurrentPrice = last.Close;
 
-        // Le serie EMA sono allineate alla fine: l'indice i-esimo dalla fine corrisponde alla candela i-esima dalla fine
+        // Le serie sono allineate alla fine: l'indice i-esimo dalla fine corrisponde alla candela i-esima dalla fine
         decimal E20(int back) => ema20[ema20.Count - 1 - back];
         decimal E50(int back) => ema50[ema50.Count - 1 - back];
+        decimal Rsi(int back) => rsi[rsi.Count - 1 - back];
 
         var e20 = E20(0);
         var e50 = E50(0);
-        var e200 = ema200.Last();
         result.Indicators["EMA20"] = e20;
         result.Indicators["EMA50"] = e50;
-        result.Indicators["EMA200"] = e200;
 
-        // 1) Trend primario
-        bool trendUp = last.Close > e50 && e50 > e200 && e50 > E50(5);
-        if (!trendUp)
+        // 1) Trend di fondo
+        if (!(last.Close > e50 && e20 > e50 && e50 > E50(5)))
         {
             result.Rejection = RejectionReason.TrendNotAligned;
             return result;
         }
 
-        // 2) Pullback recente verso la zona EMA20/EMA50 e ripresa sopra EMA20
+        // 2) Ritracciamento recente: minimo sull'EMA20 (ma sopra l'EMA50) e RSI sceso sotto soglia
         bool pullback = false;
         for (int back = 1; back <= PullbackLookback; back++)
         {
             var c = candles[candles.Count - 1 - back];
-            if (c.Low <= E20(back) && c.Low >= E50(back) * 0.97m)
+            if (c.Low <= E20(back) && c.Low >= E50(back) * 0.97m && Rsi(back) < RsiPullback)
             {
                 pullback = true;
                 break;
             }
         }
-        if (!pullback || last.Close <= e20)
+        if (!pullback)
         {
             result.Rejection = RejectionReason.NoBreakout;
             return result;
         }
 
-        // 3) Ripartenza: candela rialzista e RSI in recupero ma non ipercomprato
-        var rsiNow = rsi.Last();
-        var rsiPrev = rsi[rsi.Count - 2];
+        // 3) Ripartenza: candela rialzista sopra EMA20 e sopra il massimo precedente, RSI in crescita ma non ipercomprato
+        var rsiNow = Rsi(0);
         result.Indicators["RSI"] = rsiNow;
-        bool bullishCandle = last.Close > last.Open;
-        if (!bullishCandle || rsiNow < RsiMin || rsiNow > RsiMax || rsiNow <= rsiPrev)
+        bool reversal = last.Close > last.Open && last.Close > e20 && last.Close > prev.High;
+        if (!reversal || rsiNow > RsiMax || rsiNow <= Rsi(1))
         {
             result.Rejection = RejectionReason.RsiExtreme;
-            return result;
-        }
-
-        // 4) Regime di mercato (SPY)
-        if (marketBullish != true)
-        {
-            result.Rejection = RejectionReason.AgainstMarketRegime;
             return result;
         }
 
@@ -131,8 +110,8 @@ public class PositionTradingStrategy
         result.Signal = "BUY";
         result.Indicators["StopLoss"] = stop;
         result.Indicators["ATR"] = atr;
-        // Più forte = trend più marcato (distanza EMA50 da EMA200) e RSI più in alto nel range consentito
-        result.Indicators["SignalStrength"] = (e50 - e200) / e200 * 100m + (rsiNow - RsiMin) / 10m;
+        // Più forte = trend più marcato (distanza EMA20 da EMA50) e ripartenza più decisa (RSI)
+        result.Indicators["SignalStrength"] = (e20 - e50) / e50 * 100m + rsiNow / 10m;
         return result;
     }
 

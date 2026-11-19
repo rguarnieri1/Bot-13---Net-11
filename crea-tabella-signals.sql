@@ -1,4 +1,4 @@
--- Tabella bot12.bot12_signals del Bot 12: un record per ogni segnale valido della strategia EMA Ribbon
+-- Tabella bot13.bot13_signals del Bot 13: un record per ogni segnale valido della strategia EMA Ribbon
 -- calcolato sulle candele scaricate da Yahoo Finance (AnalysisResult con IsSignal = true),
 -- con gli indicatori della strategia e l'esito del Risk Manager. Non fa nulla se la tabella esiste già.
 IF DB_ID(N'bot') IS NULL
@@ -6,12 +6,12 @@ IF DB_ID(N'bot') IS NULL
 GO
 USE [bot];
 GO
-IF SCHEMA_ID(N'bot12') IS NULL
-    EXEC(N'CREATE SCHEMA [bot12]');
+IF SCHEMA_ID(N'bot13') IS NULL
+    EXEC(N'CREATE SCHEMA [bot13]');
 GO
-IF OBJECT_ID(N'bot12.bot12_signals', N'U') IS NULL
+IF OBJECT_ID(N'bot13.bot13_signals', N'U') IS NULL
 BEGIN
-    CREATE TABLE [bot12].[bot12_signals] (
+    CREATE TABLE [bot13].[bot13_signals] (
         [Id]                 bigint IDENTITY(1,1) NOT NULL,
         [Symbol]             nvarchar(50)    NOT NULL,
         [Strategy]           nvarchar(200)   NULL,   -- StrategyName
@@ -41,13 +41,13 @@ BEGIN
         [PositionSize]       decimal(38, 18) NULL,
         [RiskRewardRatio]    decimal(38, 18) NULL,
         [ExpectedProfit]     decimal(38, 18) NULL,
-        [TradeId]            nvarchar(36)    NULL,   -- bot12.bot12_trades.Id del trade aperto dal segnale
-        [Bot]                nvarchar(50)    NOT NULL CONSTRAINT [DF_Signals_Bot] DEFAULT (N'Bot 12'), -- bot che ha scritto la riga
+        [TradeId]            nvarchar(36)    NULL,   -- bot13.bot13_trades.Id del trade aperto dal segnale
+        [Bot]                nvarchar(50)    NOT NULL CONSTRAINT [DF_Signals_Bot] DEFAULT (N'Bot 13'), -- bot che ha scritto la riga
         CONSTRAINT [PK_Signals] PRIMARY KEY ([Id])
     );
-    CREATE INDEX [IX_Signals_Symbol_SignalCandleTime] ON [bot12].[bot12_signals] ([Symbol], [SignalCandleTime]);
-    PRINT 'Tabella bot12.bot12_signals creata';
+    CREATE INDEX [IX_Signals_Symbol_SignalCandleTime] ON [bot13].[bot13_signals] ([Symbol], [SignalCandleTime]);
+    PRINT 'Tabella bot13.bot13_signals creata';
 END
 ELSE
-    PRINT 'Tabella bot12.bot12_signals gia esistente: nessuna modifica';
+    PRINT 'Tabella bot13.bot13_signals gia esistente: nessuna modifica';
 GO

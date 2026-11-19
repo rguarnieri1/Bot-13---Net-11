@@ -2,10 +2,10 @@
 cd /d "%~dp0"
 set LOG=%~dp0build-release-log.txt
 echo === BUILD RELEASE %DATE% %TIME% === > "%LOG%"
-dotnet build "12 - Bot Usa Position.csproj" -c Release >> "%LOG%" 2>&1
+dotnet build "13 - Bot Usa Swing.csproj" -c Release >> "%LOG%" 2>&1
 if errorlevel 1 (echo BUILD FALLITA >> "%LOG%" & goto fine)
 echo BUILD OK >> "%LOG%"
-dotnet publish "12 - Bot Usa Position.csproj" -c Release -f net11.0 -o publish >> "%LOG%" 2>&1
+dotnet publish "13 - Bot Usa Swing.csproj" -c Release -f net11.0 -o publish >> "%LOG%" 2>&1
 if errorlevel 1 (echo PUBLISH FALLITO >> "%LOG%") else (echo PUBLISH OK >> "%LOG%")
 :fine
 echo FINE >> "%LOG%"
