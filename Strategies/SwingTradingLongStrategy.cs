@@ -21,7 +21,19 @@ public class SwingTradingLongStrategy
     private const decimal MaxStopPercent = 0.15m; // stop più largo del 15% = setup scartato
     public const int MinCandles = SlowEma + 20;
 
-    public AnalysisResult Analyze(string symbol, List<Candle> candles)
+    private const int MarketRegimeEmaPeriod = 50;
+
+    // Regime di mercato: true se SPY chiude sopra la sua EMA50, false se sotto, null se dati insufficienti.
+    public static bool? IsMarketBullish(List<Candle> marketCandles)
+    {
+        var ema = TechnicalIndicators.CalculateEMA(marketCandles.Select(c => c.Close).ToList(), MarketRegimeEmaPeriod);
+        if (ema.Count == 0)
+            return null;
+        return marketCandles.Last().Close > ema.Last();
+    }
+
+    // marketBullish: filtro di mercato, il long è consentito solo con SPY rialzista (sopra la EMA50).
+    public AnalysisResult Analyze(string symbol, List<Candle> candles, bool? marketBullish)
     {
         var result = new AnalysisResult
         {
@@ -61,6 +73,13 @@ public class SwingTradingLongStrategy
         var e50 = E50(0);
         result.Indicators["EMA20"] = e20;
         result.Indicators["EMA50"] = e50;
+
+        // 0) Regime di mercato (SPY)
+        if (marketBullish != true)
+        {
+            result.Rejection = RejectionReason.AgainstMarketRegime;
+            return result;
+        }
 
         // 1) Trend di fondo
         if (!(last.Close > e50 && e20 > e50 && e50 > E50(5)))

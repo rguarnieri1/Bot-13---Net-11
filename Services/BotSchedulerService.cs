@@ -170,6 +170,11 @@ public class BotSchedulerService
             {
                 Console.WriteLine($"🕯️  Seduta del {lastClosedTime:yyyy-MM-dd} chiusa: ricerca segnali");
 
+                // Regime di mercato (SPY sopra/sotto la EMA50) sulla seduta appena chiusa: filtro del long
+                var marketBullish = SwingTradingLongStrategy.IsMarketBullish(marketClosed);
+                Console.WriteLine($"📊 Regime di mercato ({YahooDataService.MarketSymbol}): {(marketBullish == null ? "sconosciuto (nessun segnale)" : marketBullish.Value ? "rialzista (long consentiti)" : "ribassista (nessun long)")}");
+                cycle.BtcRegime = marketBullish == null ? "Sconosciuto" : marketBullish.Value ? "Rialzista" : "Ribassista";
+
                 _lastScannedCandle = lastClosedTime;
                 var stocks = _dataService.Universe;
                 cycle.CryptosAnalyzed = stocks.Count;
@@ -211,7 +216,7 @@ public class BotSchedulerService
                         }
 
                         // ✅ STRATEGIA: Swing Trading Long (trend EMA20/50 + ritracciamento RSI), solo long
-                        var signalResult = _swingStrategy.Analyze(symbol, candles);
+                        var signalResult = _swingStrategy.Analyze(symbol, candles, marketBullish);
 
                         if (signalResult.IsSignal)
                             candidates.Add((symbol, signalResult, candles));

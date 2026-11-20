@@ -88,6 +88,12 @@ public class BacktestService
         DateTime? earliestTestedCandle = null;
         DateTime? latestTestedCandle = null;
 
+        // Regime di mercato (SPY) per ogni candela: calcolato solo sulle candele disponibili fino a quel momento
+        var marketCandles = _dataService.GetHistoricalCandles(YahooDataService.MarketSymbol, historyFrom, endDate);
+        var marketRegime = new Dictionary<DateTime, bool?>();
+        for (int i = 0; i < marketCandles.Count; i++)
+            marketRegime[marketCandles[i].Time] = SwingTradingLongStrategy.IsMarketBullish(Window(marketCandles, i));
+
         // 1) Scarica tutte le candele prima di simulare: il portafoglio va simulato in ordine cronologico
         //    su tutti i simboli insieme, per sapere in ogni momento quanto capitale è impegnato.
         var candlesBySymbol = new Dictionary<string, List<Candle>>();
@@ -170,7 +176,7 @@ public class BacktestService
                     if (openPositions.ContainsKey(symbol) || !indexBySymbol[symbol].TryGetValue(time, out var idx) || idx < WarmupCandles)
                         continue;
 
-                    var analysis = _strategy.Analyze(symbol, Window(candles, idx));
+                    var analysis = _strategy.Analyze(symbol, Window(candles, idx), marketRegime.GetValueOrDefault(time));
                     if (analysis.IsSignal)
                         candidates.Add((symbol, candles[idx], analysis));
                 }
