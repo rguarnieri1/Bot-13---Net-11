@@ -80,7 +80,8 @@ public class RiskManager
         var totalRisk = positionSize * riskPerUnit;
         var riskRewardRatio = netProfit / totalRisk;
 
-        if (riskRewardRatio < 1.2m)
+        const decimal minNetRr = 0.6m; // abbassato da 1.2: con stop larghi il target vicino serve per avere un win rate alto
+        if (riskRewardRatio < minNetRr)
         {
             result.Reason = $"Risk-reward too low: {riskRewardRatio:F2} < 1.2 required";
             result.Rejection = RejectionReason.RiskRewardTooLow;

@@ -12,13 +12,17 @@ public class SwingTradingLongStrategy
 {
     private const int FastEma = 20;
     private const int SlowEma = 50;
+    private const int LongEma = 200;             // filtro di trend di lungo periodo: il titolo deve stare sopra la EMA200
     private const int PullbackLookback = 5;      // candele entro cui deve essere avvenuto il ritracciamento
     private const int SwingLookback = 10;        // candele per il minimo dello swing (stop)
     private const int AtrPeriod = 14;
-    private const decimal AtrStopBuffer = 0.5m;  // buffer sotto lo swing, in ATR
-    private const decimal RsiPullback = 50m;     // l'RSI deve essere sceso sotto questa soglia durante il ritracciamento
+    // Parametri ottimizzati da backtest 4 anni (solo trade chiusi): stop molto larghi + target vicino = win rate alto,
+    // ma ogni perdita è grande (fino al 70% del prezzo di ingresso) e molte posizioni restano aperte a lungo.
+    private const decimal AtrStopBuffer = 12m;   // buffer sotto lo swing, in ATR
+    private const decimal RsiPullback = 55m;     // l'RSI deve essere sceso sotto questa soglia durante il ritracciamento
     private const decimal RsiMax = 70m;
-    private const decimal MaxStopPercent = 0.15m; // stop più largo del 15% = setup scartato
+    private const decimal MaxStopPercent = 0.70m; // stop più largo del 70% = setup scartato
+    private const decimal MinStopPercent = 0.30m; // stop più stretto del 30% = setup scartato
     public const int MinCandles = SlowEma + 20;
 
     private const int MarketRegimeEmaPeriod = 50;
@@ -119,9 +123,18 @@ public class SwingTradingLongStrategy
         var atr = CalculateAtr(candles, AtrPeriod);
         var swingLow = candles.Skip(candles.Count - SwingLookback).Min(c => c.Low);
         var stop = swingLow - atr * AtrStopBuffer;
-        if (stop <= 0 || stop >= last.Close || (last.Close - stop) / last.Close > MaxStopPercent)
+        if (stop <= 0 || stop >= last.Close || (last.Close - stop) / last.Close > MaxStopPercent
+            || (last.Close - stop) / last.Close < MinStopPercent)
         {
             result.Rejection = RejectionReason.StopLossError;
+            return result;
+        }
+
+        // Trend di lungo periodo: Close sopra la EMA200 (servono almeno 200 candele, altrimenti il titolo è scartato)
+        var e200 = TechnicalIndicators.CalculateEMA(closes, LongEma);
+        if (e200.Count == 0 || last.Close <= e200.Last())
+        {
+            result.Rejection = RejectionReason.TrendNotAligned;
             return result;
         }
 

@@ -241,12 +241,16 @@ public class BacktestService
 
         // Una posizione ancora aperta a fine periodo viene chiusa al prezzo dell'ultima candela
         // testata (mark-to-market), altrimenti le perdite/guadagni non realizzati sparirebbero dalle metriche.
-        foreach (var symbol in openPositions.Keys.ToList())
+        // MODIFICA: le posizioni ancora aperte a fine periodo NON entrano nel P&L né nelle statistiche
+        // (contano solo i trade chiusi da take profit o stop loss); vengono solo contate.
+        closedAtEnd = openPositions.Count;
+        decimal openUnrealized = 0m;
+        foreach (var (sym, pos) in openPositions)
         {
-            var lastCandle = candlesBySymbol[symbol].Last(c => c.Time <= endDate);
-            ClosePosition(symbol, lastCandle.Close, lastCandle.Time, false);
-            closedAtEnd++;
+            var lc = candlesBySymbol[sym].Last(c => c.Time <= endDate).Close;
+            openUnrealized += _riskManager.CalculateProfitAndTaxes(pos.Trade.EntryPrice, lc, pos.Size, pos.IsLong).NetProfitBeforeTax;
         }
+        Console.WriteLine($"ℹ️  P&L non realizzato delle {closedAtEnd} posizioni aperte (escluso dai risultati): ${openUnrealized:F2}");
 
         backtestResult.Metrics = _riskManager.CalculatePerformanceMetrics(backtestResult.Trades);
 
@@ -260,7 +264,7 @@ public class BacktestService
         backtestResult.TotalCapitalInvested = backtestResult.Trades.Sum(t => t.EntryPrice * t.PositionSize);
         backtestResult.MaxDrawdownAmount = maxDrawdownAmount;
 
-        Console.WriteLine($"\n✅ BACKTEST COMPLETATO ({backtestResult.Trades.Count} trade chiusi da {candleSetsAnalyzed} simboli con dati sufficienti, di cui {closedAtEnd} chiusi a fine periodo al prezzo di mercato)");
+        Console.WriteLine($"\n✅ BACKTEST COMPLETATO ({backtestResult.Trades.Count} trade chiusi da {candleSetsAnalyzed} simboli con dati sufficienti; {closedAtEnd} posizioni ancora aperte a fine periodo ESCLUSE dal P&L)");
 
         return backtestResult;
     }
