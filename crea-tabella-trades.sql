@@ -13,6 +13,7 @@ BEGIN
     CREATE TABLE [bot13].[bot13_trades] (
         [Id]               nvarchar(36)    NOT NULL,
         [Symbol]           nvarchar(50)    NULL,
+        [Isin]             nvarchar(12)    NULL,
         [OpenTime]         datetime2       NOT NULL,
         [CloseTime]        datetime2       NULL,
         [EntryPrice]       decimal(38, 18) NOT NULL,

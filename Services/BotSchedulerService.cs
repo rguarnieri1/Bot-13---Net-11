@@ -126,6 +126,7 @@ public class BotSchedulerService
             // I simboli dei trade aperti vengono caricati anche se usciti dall'elenco delle azioni più liquide.
             var openTradeSymbols = _reportingService.GetAllTrades().Where(t => t.Status == "Open" && t.IsPaperManaged).Select(t => t.Symbol).ToList();
             await _dataService.LoadAsync(now.Date.AddDays(-HistoryCalendarDays), now, extraSymbols: openTradeSymbols);
+            await IsinService.PrefetchAsync(openTradeSymbols); // ISIN salvato alla chiusura dei trade aperti
             List<Candle> GetCandles(string symbol) => _dataService.GetCandles(symbol, CandlesPerAnalysis);
 
             // 1) Paper trading: chiudi i trade aperti che hanno toccato stop loss o target
@@ -229,6 +230,9 @@ public class BotSchedulerService
                         Console.WriteLine($"   ⚠️  {symbol}: {ex.Message}");
                     }
                 }
+
+                // ISIN dei simboli con segnale (EODHD, in cache su disco), scritto nei segnali e nei trade salvati
+                await IsinService.PrefetchAsync(candidates.Select(c => c.symbol));
 
                 // Dal segnale più forte al più debole (capitale illimitato: entrano tutti i segnali validi)
                 foreach (var (symbol, signalResult, candles) in candidates.OrderByDescending(c => c.analysis.Indicators.GetValueOrDefault("SignalStrength")))
